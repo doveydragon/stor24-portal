@@ -29,6 +29,8 @@ type StoredNetcashConfiguration = {
   transactionProcessingEnabled?: unknown;
 };
 
+type AuditPayloadValue = string | number | boolean | null | Array<Record<string, string | boolean>>;
+
 export type NetcashServiceValidation = {
   accountStatus: string;
   services: Array<{ serviceId: "1" | "5" | "14"; status: string }>;
@@ -157,7 +159,7 @@ async function netcashConnection(organisationId: string) {
   });
 }
 
-async function recordNetcashAudit(scope: RequestScope, action: string, after: Record<string, unknown>) {
+async function recordNetcashAudit(scope: RequestScope, action: string, after: Record<string, AuditPayloadValue>) {
   await db.auditEvent.create({
     data: {
       organisationId: scope.organisationId,
