@@ -149,8 +149,13 @@ export async function validateNetcashServiceKeys(
     signal: AbortSignal.timeout(15_000),
   });
   const xml = await response.text();
-  if (!response.ok) throw new Error(`NETCASH_HTTP_${response.status}`);
-  return parseValidateServiceKeyResponse(xml);
+
+if (!response.ok) {
+  console.error("NETCASH RESPONSE:", xml);
+  throw new Error(`NETCASH_HTTP_${response.status}:${xml.slice(0, 500)}`);
+}
+
+return parseValidateServiceKeyResponse(xml);
 }
 
 async function netcashConnection(organisationId: string) {
