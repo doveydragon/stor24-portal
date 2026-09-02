@@ -195,9 +195,30 @@ export async function validateAndSaveNetcashConfiguration(scope: RequestScope, i
   if (!integrationEncryptionConfigured()) throw new Error("CONFIG_REQUIRED:INTEGRATION_CONFIG_ENCRYPTION_KEY");
   const parsed = configurationSchema.parse(input);
   const existing = await netcashConnection(scope.organisationId);
-  let validation: NetcashServiceValidation;
-  try {
-    validation = await validateNetcashServiceKeys(parsed);
+
+const config = {
+  environment: "test",
+  merchantAccountEncrypted: encryptIntegrationSecret(parsed.merchantAccount),
+  accountServiceKeyEncrypted: encryptIntegrationSecret(parsed.accountServiceKey),
+  debitOrderServiceKeyEncrypted: encryptIntegrationSecret(parsed.debitOrderServiceKey),
+  payNowServiceKeyEncrypted: encryptIntegrationSecret(parsed.payNowServiceKey),
+  transactionProcessingEnabled: false,
+};
+
+if (existing) {
+  await db.integrationConnection.update({
+    where: { id: existing.id },
+    data: {
+      config,
+      status: "VALIDATING",
+    },
+  });
+}
+
+let validation: NetcashServiceValidation;
+
+try {
+  validation = await validateNetcashServiceKeys(parsed);
   } catch (error) {
     const now = new Date();
     const failureCode = error instanceof Error ? error.message.split(":")[0] : "NETCASH_VALIDATION_FAILED";
@@ -218,7 +239,7 @@ export async function validateAndSaveNetcashConfiguration(scope: RequestScope, i
       environment: "test",
       failureCode,
       result: "provider-or-transport-error",
-      credentialsStored: false,
+      credentialsStored: true,
       transactionProcessingEnabled: false,
     });
     throw error;
@@ -250,21 +271,13 @@ export async function validateAndSaveNetcashConfiguration(scope: RequestScope, i
       accountMessage: diagnostic.account.message,
       services: diagnostic.services.map(({ serviceId, label, status, message, valid }) => ({ serviceId, label, status, message, valid })),
       validServiceCount: diagnostic.validServiceCount,
-      credentialsStored: false,
+      credentialsStored: true,
       transactionProcessingEnabled: false,
     });
     throw new NetcashProviderValidationError(validation);
   }
 
   const now = new Date();
-  const config = {
-    environment: "test",
-    merchantAccountEncrypted: encryptIntegrationSecret(parsed.merchantAccount),
-    accountServiceKeyEncrypted: encryptIntegrationSecret(parsed.accountServiceKey),
-    debitOrderServiceKeyEncrypted: encryptIntegrationSecret(parsed.debitOrderServiceKey),
-    payNowServiceKeyEncrypted: encryptIntegrationSecret(parsed.payNowServiceKey),
-    transactionProcessingEnabled: false,
-  };
   const connection = existing
     ? await db.integrationConnection.update({ where: { id: existing.id }, data: { config, status: "CONNECTED", lastHealthAt: now, lastSuccessAt: now, consecutiveFailures: 0, failureCode: null, failureMessage: null } })
     : await db.integrationConnection.create({ data: { organisationId: scope.organisationId, category: NETCASH_CATEGORY, provider: NETCASH_PROVIDER, config, status: "CONNECTED", lastHealthAt: now, lastSuccessAt: now } });
