@@ -33,6 +33,13 @@ test("Netcash validation response requires explicit account and service statuses
   assert.throws(() => parseValidateServiceKeyResponse("<broken/>"), /NETCASH_RESPONSE_INVALID/);
 });
 
+test("Netcash diagnostics recognise a fully valid provider response", () => {
+  const diagnostic = summariseNetcashValidation(parseValidateServiceKeyResponse(responseXml("001")));
+  assert.equal(diagnostic.account.valid, true);
+  assert.equal(diagnostic.validServiceCount, 3);
+  assert.equal(diagnostic.allValid, true);
+});
+
 test("Netcash diagnostics distinguish partial provider validation", () => {
   const diagnostic = summariseNetcashValidation(parseValidateServiceKeyResponse(responseXml("001", "001", "106", "105")));
   assert.equal(diagnostic.account.valid, true);
