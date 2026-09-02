@@ -210,7 +210,7 @@ if (existing) {
     where: { id: existing.id },
     data: {
       config,
-      status: "VALIDATING",
+      status: "DEGRADED",
     },
   });
 }
