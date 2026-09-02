@@ -177,7 +177,7 @@ export async function listNetcashConfiguration(scope: RequestScope) {
   const stored = (connection?.config ?? {}) as StoredNetcashConfiguration;
   return {
     encryptionReady: integrationEncryptionConfigured(),
-    environment: stored.environment === "test" ? "test" : "test",
+    environment: stored.environment === "live" ? "live" : "test",
     merchantAccountConfigured: configuredString(stored.merchantAccountEncrypted),
     accountServiceKeyConfigured: configuredString(stored.accountServiceKeyEncrypted),
     debitOrderServiceKeyConfigured: configuredString(stored.debitOrderServiceKeyEncrypted),
@@ -196,30 +196,20 @@ export async function validateAndSaveNetcashConfiguration(scope: RequestScope, i
   const parsed = configurationSchema.parse(input);
   const existing = await netcashConnection(scope.organisationId);
 
-const config = {
-  environment: "test",
-  merchantAccountEncrypted: encryptIntegrationSecret(parsed.merchantAccount),
-  accountServiceKeyEncrypted: encryptIntegrationSecret(parsed.accountServiceKey),
-  debitOrderServiceKeyEncrypted: encryptIntegrationSecret(parsed.debitOrderServiceKey),
-  payNowServiceKeyEncrypted: encryptIntegrationSecret(parsed.payNowServiceKey),
-  transactionProcessingEnabled: false,
-};
+  const config = {
+    environment: "test",
+    merchantAccountEncrypted: encryptIntegrationSecret(parsed.merchantAccount),
+    accountServiceKeyEncrypted: encryptIntegrationSecret(parsed.accountServiceKey),
+    debitOrderServiceKeyEncrypted: encryptIntegrationSecret(parsed.debitOrderServiceKey),
+    payNowServiceKeyEncrypted: encryptIntegrationSecret(parsed.payNowServiceKey),
+    transactionProcessingEnabled: false,
+  };
 
-if (existing) {
-  await db.integrationConnection.update({
-    where: { id: existing.id },
-    data: {
-      config,
-      status: "DEGRADED",
-    },
-  });
-}
+  let validation: NetcashServiceValidation;
 
-let validation: NetcashServiceValidation;
-
-try {
-  validation = await validateNetcashServiceKeys(parsed);
-  } catch (error) {
+  try {
+    validation = await validateNetcashServiceKeys(parsed);
+  } catch (error) { 
     const now = new Date();
     const failureCode = error instanceof Error ? error.message.split(":")[0] : "NETCASH_VALIDATION_FAILED";
     if (existing) {
